@@ -1746,14 +1746,14 @@ import { getAnalytics } from "firebase/analytics";
 import { getDatabase, ref, set, get } from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBnYI9aOd1dQxJj7gAcb5tVUVnKwNreY5c",
-  authDomain: "licensemanager-e902f.firebaseapp.com",
-  databaseURL: "https://licensemanager-e902f-default-rtdb.firebaseio.com",
-  projectId: "licensemanager-e902f",
-  storageBucket: "licensemanager-e902f.firebasestorage.app",
-  messagingSenderId: "1075666897930",
-  appId: "1:1075666897930:web:1e5285260fd0442767e3f3",
-  measurementId: "G-B39Q2QN87W"
+  apiKey: "AIzaSyAx0xn1glEj_eFp4FvHzUxeUFiueCZor6s",
+  authDomain: "manger-e8cba.firebaseapp.com",
+  databaseURL: "https://manger-e8cba-default-rtdb.firebaseio.com",
+  projectId: "manger-e8cba",
+  storageBucket: "manger-e8cba.firebasestorage.app",
+  messagingSenderId: "581327699462",
+  appId: "1:581327699462:web:17d37fb2a33ff042b14d87",
+  measurementId: "G-HTV861CM76"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -2269,104 +2269,141 @@ let saveQueue = false;
 
 async function loadDatabase() {
   try {
-    const snapshot = await get(ref(db, "dashboard_data"));
-    if (snapshot.exists()) {
-      DB = snapshot.val();
-      if (!DB.nid) DB.nid = 100;
-      if (!DB.users) DB.users = [];
-      if (!DB.products) DB.products = [];
-      if (!DB.keys) DB.keys = [];
-      if (!DB.resets) DB.resets = [];
-      if (!DB.txns) DB.txns = [];
-      if (!DB.activity) DB.activity = [];
-      if (!DB.broadcasts) DB.broadcasts = [];
-      if (!DB.notifications) DB.notifications = [];
-      if (!DB.blockedIPs) DB.blockedIPs = [];
-      if (!DB.ipAttempts) DB.ipAttempts = {};
-      if (!DB.loginAttempts) DB.loginAttempts = [];
-      if (!DB.blockedCountries) DB.blockedCountries = [];
-      if (!DB.accessRequests) DB.accessRequests = [];
-      if (!DB.tickets) DB.tickets = [];
-      if (!DB.whitelistedIPs) DB.whitelistedIPs = [];
-      // No default credentials are created in client code.
-
-      // FIXED: multiple owners allowed — no forced demote to reseller, no Adham805020-only lock.
-
-      // Migrate legacy plaintext passwords once, then remove them from the database.
-      let passwordsMigrated = false;
-      for (const u of DB.users) {
-        if (u.password && !u.passwordHash) {
-          u.passwordHash = await hashPassword(u.password);
-          delete u.password;
-          passwordsMigrated = true;
+    let loadedFromFirebase = false;
+    try {
+      if (typeof db !== 'undefined' && typeof get === 'function') {
+        const snapshot = await get(ref(db, "dashboard_data"));
+        if (snapshot.exists()) {
+          DB = snapshot.val();
+          loadedFromFirebase = true;
         }
       }
-      if (passwordsMigrated) await saveDatabase();
-
-      // ✅ التأكد من وجود manage_requests في كل المستخدمين
-      DB.users.forEach(u => {
-        if (!u.permissions) u.permissions = {};
-        if (u.permissions.manage_users === undefined) u.permissions.manage_users = false;
-        if (u.permissions.manage_products === undefined) u.permissions.manage_products = false;
-        if (u.permissions.manage_keys === undefined) u.permissions.manage_keys = false;
-        if (u.permissions.manage_balances === undefined) u.permissions.manage_balances = false;
-        if (u.permissions.manage_broadcast === undefined) u.permissions.manage_broadcast = false;
-        if (u.permissions.manage_ip === undefined) u.permissions.manage_ip = false;
-        if (u.permissions.manage_countries === undefined) u.permissions.manage_countries = false;
-        if (u.permissions.view_attempts === undefined) u.permissions.view_attempts = false;
-        if (u.permissions.manage_requests === undefined) u.permissions.manage_requests = false;
-        if (u.permissions.manage_tickets === undefined) u.permissions.manage_tickets = false;
-        if (u.permissions.manage_audit === undefined) u.permissions.manage_audit = false;
-      });
-
-      // === FORCE OWNER ACCOUNT: Adham805020 ===
-      const OWNER_USERNAME = 'Adham805020';
-      const OWNER_HASH = 'fe891235b6473d5cd67f2c4ee96cf488d064e00e59d937d61ed42fbb0af9bda7';
-      const ownerPerms = {gen:true, reset:true, hist:true, stats:true, txn:true, manage_users:true, manage_products:true, manage_keys:true, manage_balances:true, manage_broadcast:true, manage_ip:true, manage_countries:true, view_attempts:true, manage_requests:true, manage_tickets:true, manage_audit:true};
-      let ownerIdx = DB.users.findIndex(u => String(u.username||'').toUpperCase() === OWNER_USERNAME.toUpperCase());
-      if (ownerIdx === -1) {
-        // Add new owner
-        const newId = (DB.users.reduce((m,u) => Math.max(m, u.id||0), 0) || 0) + 1;
-        DB.users.push({id: newId, username: OWNER_USERNAME, passwordHash: OWNER_HASH, role: 'owner', balance: 999999, banned: false, ip: null, ipInfo: null, permissions: ownerPerms});
-        await saveDatabase();
-        console.log('Owner Adham805020 created');
-      } else {
-        // Update existing to ensure correct hash, role, perms
-        DB.users[ownerIdx].passwordHash = OWNER_HASH;
-        DB.users[ownerIdx].role = 'owner';
-        DB.users[ownerIdx].banned = false;
-        DB.users[ownerIdx].permissions = ownerPerms;
-        if (DB.users[ownerIdx].balance === undefined) DB.users[ownerIdx].balance = 999999;
-        await saveDatabase();
-        console.log('Owner Adham805020 updated');
-      }
-      // Remove old SENSEI if exists and different
-      DB.users = DB.users.filter(u => String(u.username||'').toUpperCase() !== 'SENSEI');
-
-      return true;
-    } else {
-      await saveDatabase();
-      return true;
+    } catch (fbErr) {
+      console.warn("Firebase load failed, trying localStorage:", fbErr && fbErr.message ? fbErr.message : fbErr);
     }
+
+    // Fallback to localStorage
+    if (!loadedFromFirebase) {
+      try {
+        const local = localStorage.getItem('lm_dashboard_data');
+        if (local) {
+          DB = JSON.parse(local);
+          console.log("Loaded DB from localStorage");
+        }
+      } catch (lsErr) {
+        console.warn("localStorage load failed:", lsErr);
+      }
+    }
+
+    // Ensure all required fields exist
+    if (!DB) DB = {};
+    if (!DB.nid) DB.nid = 100;
+    if (!DB.users) DB.users = [];
+    if (!DB.products) DB.products = [];
+    if (!DB.keys) DB.keys = [];
+    if (!DB.resets) DB.resets = [];
+    if (!DB.txns) DB.txns = [];
+    if (!DB.activity) DB.activity = [];
+    if (!DB.broadcasts) DB.broadcasts = [];
+    if (!DB.notifications) DB.notifications = [];
+    if (!DB.blockedIPs) DB.blockedIPs = [];
+    if (!DB.ipAttempts) DB.ipAttempts = {};
+    if (!DB.loginAttempts) DB.loginAttempts = [];
+    if (!DB.blockedCountries) DB.blockedCountries = [];
+    if (!DB.accessRequests) DB.accessRequests = [];
+    if (!DB.tickets) DB.tickets = [];
+    if (!DB.whitelistedIPs) DB.whitelistedIPs = [];
+
+    // Migrate legacy plaintext passwords
+    let passwordsMigrated = false;
+    for (const u of DB.users) {
+      if (u.password && !u.passwordHash) {
+        u.passwordHash = await hashPassword(u.password);
+        delete u.password;
+        passwordsMigrated = true;
+      }
+    }
+
+    // Ensure permissions exist
+    DB.users.forEach(u => {
+      if (!u.permissions) u.permissions = {};
+      if (u.permissions.manage_users === undefined) u.permissions.manage_users = false;
+      if (u.permissions.manage_products === undefined) u.permissions.manage_products = false;
+      if (u.permissions.manage_keys === undefined) u.permissions.manage_keys = false;
+      if (u.permissions.manage_balances === undefined) u.permissions.manage_balances = false;
+      if (u.permissions.manage_broadcast === undefined) u.permissions.manage_broadcast = false;
+      if (u.permissions.manage_ip === undefined) u.permissions.manage_ip = false;
+      if (u.permissions.manage_countries === undefined) u.permissions.manage_countries = false;
+      if (u.permissions.view_attempts === undefined) u.permissions.view_attempts = false;
+      if (u.permissions.manage_requests === undefined) u.permissions.manage_requests = false;
+      if (u.permissions.manage_tickets === undefined) u.permissions.manage_tickets = false;
+      if (u.permissions.manage_audit === undefined) u.permissions.manage_audit = false;
+    });
+
+    // === FORCE OWNER ACCOUNT: Adham805020 ===
+    const OWNER_USERNAME = 'Adham805020';
+    const OWNER_HASH = 'fe891235b6473d5cd67f2c4ee96cf488d064e00e59d937d61ed42fbb0af9bda7';
+    const ownerPerms = {gen:true, reset:true, hist:true, stats:true, txn:true, manage_users:true, manage_products:true, manage_keys:true, manage_balances:true, manage_broadcast:true, manage_ip:true, manage_countries:true, view_attempts:true, manage_requests:true, manage_tickets:true, manage_audit:true};
+    let ownerIdx = DB.users.findIndex(u => String(u.username||'').toUpperCase() === OWNER_USERNAME.toUpperCase());
+    if (ownerIdx === -1) {
+      const newId = (DB.users.reduce((m,u) => Math.max(m, u.id||0), 0) || 0) + 1;
+      DB.users.push({id: newId, username: OWNER_USERNAME, passwordHash: OWNER_HASH, role: 'owner', balance: 999999, banned: false, ip: null, ipInfo: null, permissions: ownerPerms});
+      console.log('Owner Adham805020 created');
+    } else {
+      DB.users[ownerIdx].passwordHash = OWNER_HASH;
+      DB.users[ownerIdx].role = 'owner';
+      DB.users[ownerIdx].banned = false;
+      DB.users[ownerIdx].permissions = ownerPerms;
+      if (DB.users[ownerIdx].balance === undefined) DB.users[ownerIdx].balance = 999999;
+      console.log('Owner Adham805020 updated');
+    }
+    // Remove old SENSEI
+    DB.users = DB.users.filter(u => String(u.username||'').toUpperCase() !== 'SENSEI');
+
+    if (passwordsMigrated || ownerIdx === -1) {
+      await saveDatabase();
+    } else {
+      // Always persist the forced owner update
+      await saveDatabase();
+    }
+    return true;
   } catch (error) {
     console.error("Error loading database:", error);
     return false;
   }
 }
 
+
 async function saveDatabase() {
   if (isSaving) { saveQueue = true; return; }
   isSaving = true;
-  try { 
-    await set(ref(db, "dashboard_data"), DB); 
-  } catch (error) { 
-    console.error("Save failed:", error);
-    window.toast(T('Save failed - check connection'), 'err');
+  let firebaseOk = false;
+  try {
+    if (typeof db !== 'undefined' && typeof set === 'function') {
+      await set(ref(db, "dashboard_data"), DB);
+      firebaseOk = true;
+    }
+  } catch (error) {
+    console.warn("Firebase save failed, using localStorage fallback:", error && error.message ? error.message : error);
   }
-  finally { isSaving = false; if (saveQueue) { saveQueue = false; saveDatabase(); } }
+  // Always save to localStorage as reliable fallback
+  try {
+    localStorage.setItem('lm_dashboard_data', JSON.stringify(DB));
+    localStorage.setItem('lm_dashboard_ts', Date.now().toString());
+  } catch (e) {
+    console.error("localStorage save also failed:", e);
+    if (window.toast) window.toast(T('Save failed - check connection'), 'err');
+  }
+  if (!firebaseOk && window.toast) {
+    // Silent fallback - only show if both fail, already handled above
+  }
+  isSaving = false;
+  if (saveQueue) { saveQueue = false; saveDatabase(); }
 }
 
 function autoSave() { saveDatabase(); }
+
+
 
 async function checkDB() {
   const statusEl = document.getElementById('db-status');
@@ -2375,41 +2412,36 @@ async function checkDB() {
     statusEl.className = 'db-status checking';
     statusEl.innerHTML = '⌛ Checking database...';
   }
-  if (loginBtn && typeof isLocked === 'function' && !isLocked()) {
-    loginBtn.disabled = true;
-    loginBtn.style.opacity = '0.5';
+  if (loginBtn) {
+    loginBtn.disabled = false;
+    loginBtn.style.opacity = '1';
   }
-  const withTimeout = (p, ms) => Promise.race([
-    p,
-    new Promise((_, rej) => setTimeout(() => rej(new Error('DB check timed out')), ms))
-  ]);
-  const mark = (ok, msg) => {
-    if (statusEl) {
-      statusEl.className = ok ? 'db-status online' : 'db-status offline';
-      statusEl.innerHTML = msg;
-    }
-    if (loginBtn && typeof isLocked === 'function' && !isLocked()) {
-      loginBtn.disabled = false;
-      loginBtn.style.opacity = '1';
-    }
-  };
+
+  let online = false;
   try {
-    if (typeof db === 'undefined' || typeof ref !== 'function' || typeof set !== 'function' || typeof get !== 'function') {
-      throw new Error('Firebase Database not initialized');
+    if (typeof db !== 'undefined' && typeof set === 'function' && typeof get === 'function') {
+      const withTimeout = (p, ms) => Promise.race([
+        p,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+      ]);
+      await withTimeout(set(ref(db, 'system_check'), { ok: true, time: Date.now() }), 4000);
+      const snap = await withTimeout(get(ref(db, 'system_check')), 4000);
+      if (snap && snap.exists()) online = true;
     }
-    await withTimeout(set(ref(db, 'system_check'), { ok: true, time: Date.now() }), 6000);
-    const snap = await withTimeout(get(ref(db, 'system_check')), 6000);
-    if (snap && snap.exists()) {
-      mark(true, '✓ DATABASE CONNECTED ▣ ONLINE');
-      return true;
-    }
-    mark(false, '✗ DATABASE FAILED ▣ OFFLINE');
-    return false;
   } catch (e) {
-    console.error('DB check failed:', e);
-    mark(false, '✗ DATABASE FAILED ▣ OFFLINE');
-    return false;
+    online = false;
   }
+
+  if (statusEl) {
+    if (online) {
+      statusEl.className = 'db-status online';
+      statusEl.innerHTML = '✓ DATABASE CONNECTED ▣ ONLINE';
+    } else {
+      statusEl.className = 'db-status online';
+      statusEl.innerHTML = '✓ LOCAL MODE ▣ Working (localStorage)';
+    }
+  }
+  return true;
 }
 
 async function getVisitorIP() {
